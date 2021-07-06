@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"time"
+
+	"github.com/docker/docker/api/types/mount"
 )
 
 const (
@@ -144,6 +146,22 @@ func WithHostMounts(src, dst string) Option {
 	}
 }
 
+// WithVolumeHostMounts allows to bind host path (`src`) inside the container under
+// `dst` path with Docker mount type.
+func WithVolumeHostMounts(volumeName, dst string) Option {
+	return func(o *Options) {
+		if o.HostMountsV2 == nil {
+			o.HostMountsV2 = make([]*mount.Mount, 0)
+		}
+
+		o.HostMountsV2 = append(o.HostMountsV2, &mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: volumeName,
+			Target: dst,
+		})
+	}
+}
+
 // WithDisableAutoCleanup disables auto-removal of this container when the
 // tests complete. Automatic cleanup is a safety net for tests that for some
 // reason fail to run `gnomock.Stop()` in the end, for example due to an
@@ -189,6 +207,19 @@ func nopInit(context.Context, *Container) error {
 	return nil
 }
 
+type HostMountType string
+
+const (
+	HostMountTypeBind   HostMountType = "bind"
+	HostMountTypeVolume HostMountType = "volume"
+)
+
+type HostMount struct {
+	Type   HostMountType
+	Source string
+	Target string
+}
+
 // Options includes Gnomock startup configuration. Functional options
 // (WithSomething) should be used instead of directly initializing objects of
 // this type whenever possible.
@@ -218,6 +249,9 @@ type Options struct {
 
 	// HostMounts allows to mount local paths into the container.
 	HostMounts map[string]string `json:"host_mounts"`
+
+	// HostMountsV2 allows to mount local paths into the container.
+	HostMountsV2 []*mount.Mount `json:"host_mounts_v2"`
 
 	// DisableAutoCleanup prevents the container from being automatically
 	// stopped and removed after the tests are complete. By default, Gnomock

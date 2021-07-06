@@ -13,6 +13,20 @@ func WithUser(user, password string) Option {
 	}
 }
 
+// WithRoot
+func WithRoot(password string) Option {
+	return func(p *P) {
+		p.RootPassword = password
+	}
+}
+
+// AsRoot
+func WithUnknownDatabase() Option {
+	return func(p *P) {
+		p.UnknownDB = true
+	}
+}
+
 // WithDatabase creates a database with the provided name in the container. If
 // not provided, "mydb" is used by default.  WithQueries, if provided, runs
 // against the new database.

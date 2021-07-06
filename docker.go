@@ -237,6 +237,16 @@ func (d *docker) createContainer(ctx context.Context, image string, ports NamedP
 		})
 	}
 
+	if cfg.HostMountsV2 != nil && len(cfg.HostMountsV2) > 0 {
+		for _, m := range cfg.HostMountsV2 {
+			mounts = append(mounts, mount.Mount{
+				Type:   m.Type,
+				Source: m.Source,
+				Target: m.Target,
+			})
+		}
+	}
+
 	portBindings := d.portBindings(exposedPorts, ports)
 	hostConfig := &container.HostConfig{
 		PortBindings: portBindings,

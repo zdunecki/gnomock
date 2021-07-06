@@ -47,8 +47,10 @@ func Preset(opts ...Option) gnomock.Preset {
 // P is a Gnomock Preset implementation of MySQL database.
 type P struct {
 	DB           string   `json:"db"`
+	UnknownDB    bool     `json:"unknown_db"`
 	User         string   `json:"user"`
 	Password     string   `json:"password"`
+	RootPassword string   `json:"root_password"`
 	Queries      []string `json:"queries"`
 	QueriesFiles []string `json:"queries_files"`
 	Version      string   `json:"version"`
@@ -75,11 +77,22 @@ func (p *P) Options() []gnomock.Option {
 
 	opts := []gnomock.Option{
 		gnomock.WithHealthCheck(p.healthcheck),
-		gnomock.WithEnv("MYSQL_USER=" + p.User),
-		gnomock.WithEnv("MYSQL_PASSWORD=" + p.Password),
-		gnomock.WithEnv("MYSQL_DATABASE=" + p.DB),
-		gnomock.WithEnv("MYSQL_RANDOM_ROOT_PASSWORD=yes"),
 		gnomock.WithInit(p.initf()),
+	}
+
+	if p.RootPassword != "" {
+		opts = append(opts, gnomock.WithEnv("MYSQL_ROOT_PASSWORD="+p.RootPassword))
+	} else {
+		opts = append(
+			opts,
+			gnomock.WithEnv("MYSQL_USER="+p.User),
+			gnomock.WithEnv("MYSQL_PASSWORD="+p.Password),
+			gnomock.WithEnv("MYSQL_RANDOM_ROOT_PASSWORD=yes"),
+		)
+	}
+
+	if p.DB != "" {
+		opts = append(opts, gnomock.WithEnv("MYSQL_DATABASE="+p.DB))
 	}
 
 	return opts
@@ -136,9 +149,17 @@ func (p *P) initf() gnomock.InitFunc {
 }
 
 func (p *P) connect(addr string) (*sql.DB, error) {
+	user := p.User
+	password := p.Password
+
+	if p.RootPassword != "" {
+		user = "root"
+		password = p.RootPassword
+	}
+
 	connStr := fmt.Sprintf(
 		"%s:%s@tcp(%s)/%s?multiStatements=true",
-		p.User, p.Password, addr, p.DB,
+		user, password, addr, p.DB,
 	)
 
 	db, err := sql.Open("mysql", connStr)
@@ -150,7 +171,7 @@ func (p *P) connect(addr string) (*sql.DB, error) {
 }
 
 func (p *P) setDefaults() {
-	if p.DB == "" {
+	if p.DB == "" && !p.UnknownDB {
 		p.DB = defaultDatabase
 	}
 
